@@ -21,6 +21,8 @@
 
 STL中使用嵌入式指针管理内存块的连接，使用union让链表的next指针和实际数据共用内存，当内存块没有分配出去的时候表现为指针，当数据分配出去后内存块与内存池分离，所以不需要next指针了，转为实际数据，这样使得数据与指针公用了内存空间，节省了一个指针的大小，前提是数据块大小不能小于指针的大小。
 
+这样做的好处是节省了一个指针的内存空间，坏处是无法将内存还给操作系统。  
+
 ```cpp
 union obj
 {
@@ -42,7 +44,7 @@ struct obj
 
 在全局区域内设置有16条free list，从第0个到第15个管理内存块以8的倍数增长（8，16，24...128）,当使用者需要new一块内存时，内存池首先会将需要的内存大小向上调整至8的倍数，当内存块大小大于free list所管理的最大值（128byte）时，直接调用malloc函数，否则会检索对应的free list上是否挂有空闲的内存块，如果有则直接分给使用者一块空间，并移动头指针，指向下一个空闲节点。  
 
-![](https://raw.githubusercontent.com/Cirnoo/Allocator/master/Img/free_list.png) 
+![free list](https://raw.githubusercontent.com/Cirnoo/Allocator/master/Img/free_list.png) 
  
 
 ### 向内存池充值  
@@ -52,6 +54,9 @@ struct obj
 ### 备用内存池（战备池）
 
 在内存池向操作系统申请内存的时候会一次性申请`size_t bytes_to_get = 2 * total_bytes + ROUND_UP(heap_size >> 4);`大小的内存，total_bytes为分配给free list的空间，剩下的空间会分配到战备池，有一个start和end指针分别指向战备池的头和尾，在使用者向内存池申请内存的时候，free list会优先考虑战备池是否还有空闲的内存，如果有则加入到free list中，如果战备池剩余大小不足以分配当前所需的内存，则会将战备池的内存挂到较小的free list中，避免内存泄漏，再重新给战备池充值。
+
+![pool](https://raw.githubusercontent.com/Cirnoo/Allocator/master/Img/pool.png)  
+
 
 ### 当系统内存不足时
 
